@@ -1,0 +1,65 @@
+name: Build and Release Flutter Desktop App
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Flutter
+      uses: subosito/flutter-action@v2
+      with:
+        flutter-version: 'latest'
+
+    - name: Install dependencies
+      run: flutter pub get
+
+    - name: Build Linux release
+      run: flutter build linux --release
+
+    - name: Package .deb file
+      run: |
+        cd build/linux/x64/release/bundle
+        mkdir -p DEBIAN
+        echo "Package: your_app_name
+        Version: 1.0.0
+        Section: base
+        Priority: optional
+        Architecture: amd64
+        Maintainer: Your Name <your.email@example.com>
+        Description: Your App Description" > DEBIAN/control
+        dpkg-deb --build . ../../your_app_name_1.0.0_amd64.deb
+
+    - name: Upload .deb as artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: your_app_name
+        path: build/linux/x64/release/your_app_name_1.0.0_amd64.deb
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: 'v1.0.0'
+        release_name: 'v1.0.0'
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: build/linux/x64/release/your_app_name_1.0.0_amd64.deb
+        asset_name: your_app_name_1.0.0_amd64.deb
+        asset_content_type: application/octet-stream
